@@ -8,7 +8,11 @@
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "deploy": "pnpm run build && wrangler deploy"
+    "deploy": "pnpm run build && wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.13.8",
@@ -20,13 +24,17 @@
     "@tanstack/solid-router-devtools": "^1.133.20",
     "@tanstack/solid-router-ssr-query": "^1.132.25",
     "@tanstack/solid-start": "^1.133.20",
+    "drizzle-orm": "^0.45.1",
     "lucide-solid": "^0.544.0",
     "solid-js": "^1.9.9",
     "tailwindcss": "^4.1.18",
     "vite-tsconfig-paths": "^5.1.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260214.0",
+    "@opencode-ai/plugin": "^1.2.5",
     "@tanstack/devtools-vite": "^0.3.11",
+    "drizzle-kit": "^0.31.9",
     "typescript": "^5.7.2",
     "vite": "^7.1.7",
     "vite-plugin-lucide-preprocess": "^1.4.6",
