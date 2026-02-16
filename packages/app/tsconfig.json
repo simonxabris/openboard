@@ -1,5 +1,5 @@
 {
-  "include": ["**/*.ts", "**/*.tsx", "./worker-configuration.d.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "./worker-configuration.d.ts", "./auth-schema.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "preserve",

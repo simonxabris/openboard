@@ -1,40 +1,9 @@
 import { sql } from "drizzle-orm";
-import {
-  check,
-  index,
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// Claimed user identity used for leaderboard rows and ingestion auth.
-export const users = sqliteTable(
-  "users",
-  {
-    id: text("id").primaryKey(),
-    username: text("username").notNull(),
-    usernameNormalized: text("username_normalized").notNull(),
-    secretKeyHash: text("secret_key_hash").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (table) => [
-    index("users_last_seen_idx").on(table.lastSeenAt),
-    uniqueIndex("users_username_normalized_uq").on(table.usernameNormalized),
-    check("users_username_not_empty", sql`length(trim(${table.username})) > 0`),
-    check(
-      "users_username_normalized_lowercase",
-      sql`${table.usernameNormalized} = lower(${table.usernameNormalized})`,
-    ),
-    check("users_secret_key_hash_not_empty", sql`length(trim(${table.secretKeyHash})) > 0`),
-  ],
-);
+import { user } from "../../auth-schema";
+
+export * from "../../auth-schema";
 
 // Latest usage snapshot per user session.
 export const usageEvents = sqliteTable(
@@ -42,7 +11,7 @@ export const usageEvents = sqliteTable(
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     sessionId: text("session_id").notNull(),
     id: text("id").notNull(),
     usageDay: text("usage_day").notNull(), // UTC day key: YYYY-MM-DD
