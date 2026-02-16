@@ -1,16 +1,24 @@
 import { createFileRoute } from '@tanstack/solid-router'
-import { createQuery } from '@tanstack/solid-query'
+import { useQuery, } from '@tanstack/solid-query'
 
 export const Route = createFileRoute('/demo/tanstack-query')({
   component: App,
+  loader({ context }) {
+    context.queryClient.prefetchQuery(
+      {
+        queryKey: ['people'],
+        queryFn: () =>
+          Promise.resolve([{ name: 'John Doe' }, { name: 'Jane Doe' }]),
+      }
+    )
+  }
 })
 
 function App() {
-  const peopleQuery = createQuery(() => ({
+  const peopleQuery = useQuery(() => ({
     queryKey: ['people'],
     queryFn: () =>
       Promise.resolve([{ name: 'John Doe' }, { name: 'Jane Doe' }]),
-    initialData: [],
   }))
 
   return (

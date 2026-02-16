@@ -12,8 +12,11 @@ import { Suspense } from 'solid-js'
 import Header from '../components/Header'
 
 import styleCss from '../styles.css?url'
+import type { QueryClient } from '@tanstack/solid-query'
 
-export const Route = createRootRouteWithContext()({
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient
+}>()({
   head: () => ({
     links: [{ rel: 'stylesheet', href: styleCss }],
   }),
