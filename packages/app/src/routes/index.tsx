@@ -1,37 +1,37 @@
-import { createFileRoute } from '@tanstack/solid-router'
-import { queryOptions, useQuery } from '@tanstack/solid-query'
-import { For, Show, createSignal } from 'solid-js'
-import { Trophy, Flame, Crown } from 'lucide-solid'
+import { createFileRoute } from "@tanstack/solid-router";
+import { queryOptions, useQuery } from "@tanstack/solid-query";
+import { For, Show, createSignal } from "solid-js";
+import { Trophy, Flame, Crown } from "lucide-solid";
 import {
   createUser,
   getAllTimeLeaderboard,
   getDailyLeaderboard,
   type LeaderboardEntry,
-} from '../server/functions'
+} from "../server/functions";
 
 const dailyLeaderboardQueryOptions = queryOptions({
-  queryKey: ['leaderboard', 'daily'],
+  queryKey: ["leaderboard", "daily"],
   queryFn: () => getDailyLeaderboard(),
-})
+});
 
 const allTimeLeaderboardQueryOptions = queryOptions({
-  queryKey: ['leaderboard', 'all-time'],
+  queryKey: ["leaderboard", "all-time"],
   queryFn: () => getAllTimeLeaderboard(),
-})
+});
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(dailyLeaderboardQueryOptions),
       context.queryClient.ensureQueryData(allTimeLeaderboardQueryOptions),
     ]),
   component: Home,
-})
+});
 
 function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toString()
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
 }
 
 function RankBadge(props: { rank: number }) {
@@ -40,34 +40,34 @@ function RankBadge(props: { rank: number }) {
       <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#fbbf24]/10 text-[#fbbf24]">
         <Crown size={16} />
       </div>
-    )
+    );
   }
   if (props.rank === 2) {
     return (
       <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#94a3b8]/10 text-[#94a3b8] text-sm font-bold">
         2
       </div>
-    )
+    );
   }
   if (props.rank === 3) {
     return (
       <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#d97706]/10 text-[#d97706] text-sm font-bold">
         3
       </div>
-    )
+    );
   }
   return (
     <div class="flex items-center justify-center w-8 h-8 rounded-md text-[#525252] text-sm font-medium">
       {props.rank}
     </div>
-  )
+  );
 }
 
 function LeaderboardTable(props: {
-  title: string
-  subtitle: string
-  icon: any
-  data: LeaderboardEntry[]
+  title: string;
+  subtitle: string;
+  icon: any;
+  data: LeaderboardEntry[];
 }) {
   return (
     <div class="border border-[#262626] overflow-hidden bg-[#0a0a0a]">
@@ -96,7 +96,9 @@ function LeaderboardTable(props: {
                     <RankBadge rank={entry.rank} />
                   </td>
                   <td class="py-3 px-2">
-                    <span class={`font-medium ${entry.rank <= 3 ? 'text-[#e5e5e5]' : 'text-[#a3a3a3]'}`}>
+                    <span
+                      class={`font-medium ${entry.rank <= 3 ? "text-[#e5e5e5]" : "text-[#a3a3a3]"}`}
+                    >
                       {entry.name}
                     </span>
                   </td>
@@ -110,62 +112,62 @@ function LeaderboardTable(props: {
         </table>
       </div>
     </div>
-  )
+  );
 }
 
 function Home() {
-  const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions)
-  const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions)
-  const [username, setUsername] = createSignal('')
-  const [isCreatingUser, setIsCreatingUser] = createSignal(false)
-  const [claimError, setClaimError] = createSignal<string | null>(null)
-  const [claimedUsername, setClaimedUsername] = createSignal<string | null>(null)
-  const [secretKey, setSecretKey] = createSignal<string | null>(null)
-  const [secretCopied, setSecretCopied] = createSignal(false)
+  const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions);
+  const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions);
+  const [username, setUsername] = createSignal("");
+  const [isCreatingUser, setIsCreatingUser] = createSignal(false);
+  const [claimError, setClaimError] = createSignal<string | null>(null);
+  const [claimedUsername, setClaimedUsername] = createSignal<string | null>(null);
+  const [secretKey, setSecretKey] = createSignal<string | null>(null);
+  const [secretCopied, setSecretCopied] = createSignal(false);
 
   const onClaimSubmit = async (event: SubmitEvent) => {
-    event.preventDefault()
-    if (isCreatingUser()) return
+    event.preventDefault();
+    if (isCreatingUser()) return;
 
-    setClaimError(null)
-    setSecretCopied(false)
-    setIsCreatingUser(true)
+    setClaimError(null);
+    setSecretCopied(false);
+    setIsCreatingUser(true);
 
     try {
       const result = await createUser({
         data: {
           username: username(),
         },
-      })
+      });
 
       if (!result.ok) {
-        setClaimedUsername(null)
-        setSecretKey(null)
-        setClaimError(result.message)
-        return
+        setClaimedUsername(null);
+        setSecretKey(null);
+        setClaimError(result.message);
+        return;
       }
 
-      setClaimedUsername(result.username)
-      setSecretKey(result.secretKey)
-      setUsername(result.username)
+      setClaimedUsername(result.username);
+      setSecretKey(result.secretKey);
+      setUsername(result.username);
     } catch {
-      setClaimError('Failed to create user')
+      setClaimError("Failed to create user");
     } finally {
-      setIsCreatingUser(false)
+      setIsCreatingUser(false);
     }
-  }
+  };
 
   const onCopySecret = async () => {
-    const value = secretKey()
-    if (!value) return
+    const value = secretKey();
+    if (!value) return;
 
     try {
-      await navigator.clipboard.writeText(value)
-      setSecretCopied(true)
+      await navigator.clipboard.writeText(value);
+      setSecretCopied(true);
     } catch {
-      setClaimError('Unable to copy automatically. Copy the secret manually.')
+      setClaimError("Unable to copy automatically. Copy the secret manually.");
     }
-  }
+  };
 
   return (
     <div class="max-w-6xl mx-auto px-6 py-12">
@@ -199,7 +201,7 @@ function Home() {
             disabled={isCreatingUser()}
             class="px-4 py-2 bg-[#22d3ee] text-[#0a0a0a] text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isCreatingUser() ? 'Creating...' : 'Claim username'}
+            {isCreatingUser() ? "Creating..." : "Claim username"}
           </button>
         </form>
 
@@ -224,7 +226,7 @@ function Home() {
                 onClick={onCopySecret}
                 class="mt-3 px-3 py-1.5 border border-[#262626] text-[#a3a3a3] text-xs hover:text-[#e5e5e5] hover:border-[#3f3f46]"
               >
-                {secretCopied() ? 'Copied' : 'Copy secret'}
+                {secretCopied() ? "Copied" : "Copy secret"}
               </button>
             </div>
           )}
@@ -234,7 +236,12 @@ function Home() {
       <div class="flex flex-col gap-10">
         <LeaderboardTable
           title="Today's Leaderboard"
-          subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          subtitle={new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
           icon={<Flame size={20} class="text-[#f97316]" />}
           data={dailyLeaderboardQuery.data ?? []}
         />
@@ -247,5 +254,5 @@ function Home() {
         />
       </div>
     </div>
-  )
+  );
 }

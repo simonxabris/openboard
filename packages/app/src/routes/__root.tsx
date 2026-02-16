@@ -1,26 +1,21 @@
-import {
-  HeadContent,
-  Outlet,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/solid-router'
+import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/solid-router";
 
-import { HydrationScript } from 'solid-js/web'
-import { Suspense } from 'solid-js'
+import { HydrationScript } from "solid-js/web";
+import { Suspense } from "solid-js";
 
-import Header from '../components/Header'
+import Header from "../components/Header";
 
-import styleCss from '../styles.css?url'
-import type { QueryClient } from '@tanstack/solid-query'
+import styleCss from "../styles.css?url";
+import type { QueryClient } from "@tanstack/solid-query";
 
 export const Route = createRootRouteWithContext<{
-  queryClient: QueryClient
+  queryClient: QueryClient;
 }>()({
   head: () => ({
-    links: [{ rel: 'stylesheet', href: styleCss }],
+    links: [{ rel: "stylesheet", href: styleCss }],
   }),
   shellComponent: RootComponent,
-})
+});
 
 function RootComponent() {
   return (
@@ -40,5 +35,5 @@ function RootComponent() {
         <Scripts />
       </body>
     </html>
-  )
+  );
 }

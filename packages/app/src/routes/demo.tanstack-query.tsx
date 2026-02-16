@@ -1,25 +1,21 @@
-import { createFileRoute } from '@tanstack/solid-router'
-import { useQuery, } from '@tanstack/solid-query'
+import { createFileRoute } from "@tanstack/solid-router";
+import { useQuery } from "@tanstack/solid-query";
 
-export const Route = createFileRoute('/demo/tanstack-query')({
+export const Route = createFileRoute("/demo/tanstack-query")({
   component: App,
   loader({ context }) {
-    context.queryClient.prefetchQuery(
-      {
-        queryKey: ['people'],
-        queryFn: () =>
-          Promise.resolve([{ name: 'John Doe' }, { name: 'Jane Doe' }]),
-      }
-    )
-  }
-})
+    context.queryClient.prefetchQuery({
+      queryKey: ["people"],
+      queryFn: () => Promise.resolve([{ name: "John Doe" }, { name: "Jane Doe" }]),
+    });
+  },
+});
 
 function App() {
   const peopleQuery = useQuery(() => ({
-    queryKey: ['people'],
-    queryFn: () =>
-      Promise.resolve([{ name: 'John Doe' }, { name: 'Jane Doe' }]),
-  }))
+    queryKey: ["people"],
+    queryFn: () => Promise.resolve([{ name: "John Doe" }, { name: "Jane Doe" }]),
+  }));
 
   return (
     <div class="p-4">
@@ -30,7 +26,7 @@ function App() {
         ))}
       </ul>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

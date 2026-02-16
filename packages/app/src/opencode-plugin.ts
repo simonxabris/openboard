@@ -1,31 +1,31 @@
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode-ai/plugin";
 
-const USAGE_EVENTS_URL = "https://openboard.abrissimon.workers.dev/api/ingest"
-const USAGE_EVENTS_USERNAME = "test"
-const USAGE_EVENTS_SECRET_KEY = "ob_sk_f2738409a62879459aafb5b9da273fb27b9c09e863480780"
+const USAGE_EVENTS_URL = "https://openboard.abrissimon.workers.dev/api/ingest";
+const USAGE_EVENTS_USERNAME = "test";
+const USAGE_EVENTS_SECRET_KEY = "ob_sk_f2738409a62879459aafb5b9da273fb27b9c09e863480780";
 
-export const UsageEventsPlugin: Plugin = async () => {
-  const model = new Map<string, { model: string; provider: string }>()
+export const OpenboardPlugin: Plugin = async () => {
+  const model = new Map<string, { model: string; provider: string }>();
 
   return {
     event: async ({ event }) => {
       if (event.type === "message.updated") {
-        const info = event.properties.info
-        if (info.role !== "assistant") return
+        const info = event.properties.info;
+        if (info.role !== "assistant") return;
         model.set(info.id, {
           model: info.modelID || "unknown",
           provider: info.providerID || "unknown",
-        })
-        return
+        });
+        return;
       }
 
-      if (event.type !== "message.part.updated") return
-      const part = event.properties.part
-      if (part.type !== "step-finish") return
+      if (event.type !== "message.part.updated") return;
+      const part = event.properties.part;
+      if (part.type !== "step-finish") return;
 
-      const eventSentAt = Date.now()
-      const occurredAt = eventSentAt
-      const usage = model.get(part.messageID)
+      const eventSentAt = Date.now();
+      const occurredAt = eventSentAt;
+      const usage = model.get(part.messageID);
       const body = {
         auth: {
           username: USAGE_EVENTS_USERNAME,
@@ -44,7 +44,7 @@ export const UsageEventsPlugin: Plugin = async () => {
           eventSentAt,
           occurredAt,
         },
-      }
+      };
 
       await fetch(USAGE_EVENTS_URL, {
         method: "POST",
@@ -52,7 +52,7 @@ export const UsageEventsPlugin: Plugin = async () => {
           "content-type": "application/json",
         },
         body: JSON.stringify(body),
-      })
+      });
     },
-  }
-}
+  };
+};

@@ -1,12 +1,15 @@
-import { Link } from '@tanstack/solid-router'
-import { Github } from 'lucide-solid'
+import { Link } from "@tanstack/solid-router";
+import { Github } from "lucide-solid";
 
 export default function Header() {
   return (
     <header class="border-b border-[#262626] bg-[#0a0a0a]">
       <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" class="flex items-center gap-3 no-underline">
-          <span class="text-[#e5e5e5] text-xl font-bold tracking-tight" style="font-family: 'JetBrains Mono', monospace">
+          <span
+            class="text-[#e5e5e5] text-xl font-bold tracking-tight"
+            style="font-family: 'JetBrains Mono', monospace"
+          >
             openboard
           </span>
         </Link>
@@ -24,5 +27,5 @@ export default function Header() {
         </nav>
       </div>
     </header>
-  )
+  );
 }
