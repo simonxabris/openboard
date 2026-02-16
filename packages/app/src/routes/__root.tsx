@@ -4,7 +4,6 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/solid-router'
-import { TanStackRouterDevtools } from '@tanstack/solid-router-devtools'
 
 import { HydrationScript } from 'solid-js/web'
 import { Suspense } from 'solid-js'
@@ -25,17 +24,18 @@ export const Route = createRootRouteWithContext<{
 
 function RootComponent() {
   return (
-    <html>
+    <html lang="en">
       <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>OpenBoard — OpenCode Leaderboard</title>
         <HydrationScript />
       </head>
-      <body>
+      <body class="min-h-screen bg-[#0a0a0a]">
         <HeadContent />
         <Suspense>
           <Header />
-
           <Outlet />
-          <TanStackRouterDevtools />
         </Suspense>
         <Scripts />
       </body>

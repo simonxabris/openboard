@@ -1,118 +1,165 @@
 import { createFileRoute } from '@tanstack/solid-router'
 import { For } from 'solid-js'
-import {
-  Zap,
-  Server,
-  Route as RouteIcon,
-  Shield,
-  Waves,
-  Sparkles,
-} from 'lucide-solid'
+import { Trophy, Flame, Crown } from 'lucide-solid'
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute('/')({ component: Home })
 
-function App() {
-  const features = [
-    {
-      icon: <Zap class="w-12 h-12 text-cyan-400" />,
-      title: 'Powerful Server Functions',
-      description:
-        'Write server-side code that seamlessly integrates with your client components. Type-safe, secure, and simple.',
-    },
-    {
-      icon: <Server class="w-12 h-12 text-cyan-400" />,
-      title: 'Flexible Server Side Rendering',
-      description:
-        'Full-document SSR, streaming, and progressive enhancement out of the box. Control exactly what renders where.',
-    },
-    {
-      icon: <RouteIcon class="w-12 h-12 text-cyan-400" />,
-      title: 'API Routes',
-      description:
-        'Build type-safe API endpoints alongside your application. No separate backend needed.',
-    },
-    {
-      icon: <Shield class="w-12 h-12 text-cyan-400" />,
-      title: 'Strongly Typed Everything',
-      description:
-        'End-to-end type safety from server to client. Catch errors before they reach production.',
-    },
-    {
-      icon: <Waves class="w-12 h-12 text-cyan-400" />,
-      title: 'Full Streaming Support',
-      description:
-        'Stream data from server to client progressively. Perfect for AI applications and real-time updates.',
-    },
-    {
-      icon: <Sparkles class="w-12 h-12 text-cyan-400" />,
-      title: 'Next Generation Ready',
-      description:
-        'Built from the ground up for modern web applications. Deploy anywhere JavaScript runs.',
-    },
-  ]
+type LeaderboardEntry = {
+  rank: number
+  name: string
+  tokens: number
+  model: string
+  sessions: number
+}
 
+const dailyLeaderboard: LeaderboardEntry[] = [
+  { rank: 1, name: 'phantom_dev', tokens: 2_847_312, model: 'claude-4-sonnet', sessions: 47 },
+  { rank: 2, name: 'rust_enjoyer', tokens: 2_134_891, model: 'gpt-4.1', sessions: 38 },
+  { rank: 3, name: 'nix_wizard', tokens: 1_923_445, model: 'claude-4-sonnet', sessions: 34 },
+  { rank: 4, name: 'async_await', tokens: 1_567_230, model: 'gemini-2.5-pro', sessions: 29 },
+  { rank: 5, name: 'kernel_panic', tokens: 1_245_678, model: 'claude-4-sonnet', sessions: 25 },
+  { rank: 6, name: 'malloc_free', tokens: 987_432, model: 'gpt-4.1', sessions: 21 },
+  { rank: 7, name: 'git_rebase', tokens: 876_321, model: 'deepseek-r1', sessions: 18 },
+  { rank: 8, name: 'null_ptr', tokens: 654_219, model: 'claude-4-sonnet', sessions: 14 },
+  { rank: 9, name: 'sudo_rm_rf', tokens: 543_210, model: 'gemini-2.5-pro', sessions: 12 },
+  { rank: 10, name: 'vim_btw', tokens: 432_198, model: 'gpt-4.1', sessions: 9 },
+]
+
+const allTimeLeaderboard: LeaderboardEntry[] = [
+  { rank: 1, name: 'rust_enjoyer', tokens: 48_293_412, model: 'claude-4-sonnet', sessions: 892 },
+  { rank: 2, name: 'phantom_dev', tokens: 41_234_567, model: 'gpt-4.1', sessions: 743 },
+  { rank: 3, name: 'nix_wizard', tokens: 37_891_234, model: 'claude-4-sonnet', sessions: 681 },
+  { rank: 4, name: 'kernel_panic', tokens: 29_876_543, model: 'gemini-2.5-pro', sessions: 534 },
+  { rank: 5, name: 'async_await', tokens: 24_567_890, model: 'claude-4-sonnet', sessions: 467 },
+  { rank: 6, name: 'git_rebase', tokens: 19_345_678, model: 'deepseek-r1', sessions: 389 },
+  { rank: 7, name: 'sudo_rm_rf', tokens: 15_234_567, model: 'gpt-4.1', sessions: 312 },
+  { rank: 8, name: 'malloc_free', tokens: 12_876_543, model: 'claude-4-sonnet', sessions: 256 },
+  { rank: 9, name: 'null_ptr', tokens: 9_432_100, model: 'gemini-2.5-pro', sessions: 198 },
+  { rank: 10, name: 'vim_btw', tokens: 7_654_321, model: 'gpt-4.1', sessions: 145 },
+]
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toString()
+}
+
+function RankBadge(props: { rank: number }) {
+  if (props.rank === 1) {
+    return (
+      <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#fbbf24]/10 text-[#fbbf24]">
+        <Crown size={16} />
+      </div>
+    )
+  }
+  if (props.rank === 2) {
+    return (
+      <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#94a3b8]/10 text-[#94a3b8] text-sm font-bold">
+        2
+      </div>
+    )
+  }
+  if (props.rank === 3) {
+    return (
+      <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#d97706]/10 text-[#d97706] text-sm font-bold">
+        3
+      </div>
+    )
+  }
   return (
-    <div class="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-      <section class="relative py-20 px-6 text-center overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10"></div>
-        <div class="relative max-w-5xl mx-auto">
-          <div class="flex items-center justify-center gap-6 mb-6">
-            <img
-              src="/tanstack-circle-logo.png"
-              alt="TanStack Logo"
-              class="w-24 h-24 md:w-32 md:h-32"
-            />
-            <h1 class="text-6xl md:text-7xl font-black text-white [letter-spacing:-0.08em]">
-              <span class="text-gray-300">TANSTACK</span>{' '}
-              <span class="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                START
-              </span>
-            </h1>
-          </div>
-          <p class="text-2xl md:text-3xl text-gray-300 mb-4 font-light">
-            The framework for next generation AI applications
-          </p>
-          <p class="text-lg text-gray-400 max-w-3xl mx-auto mb-8">
-            Full-stack framework powered by TanStack Router for React and Solid.
-            Build modern applications with server functions, streaming, and type
-            safety.
-          </p>
-          <div class="flex flex-col items-center gap-4">
-            <a
-              href="https://tanstack.com/start"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="px-8 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-cyan-500/50"
-            >
-              Documentation
-            </a>
-            <p class="text-gray-400 text-sm mt-2">
-              Begin your TanStack Start journey by editing{' '}
-              <code class="px-2 py-1 bg-slate-700 rounded text-cyan-400">
-                /src/routes/index.tsx
-              </code>
-            </p>
-          </div>
-        </div>
-      </section>
+    <div class="flex items-center justify-center w-8 h-8 rounded-md text-[#525252] text-sm font-medium">
+      {props.rank}
+    </div>
+  )
+}
 
-      <section class="py-16 px-6 max-w-7xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <For each={features}>
-            {(feature) => (
-              <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10">
-                <div class="mb-4">{feature.icon}</div>
-                <h3 class="text-xl font-semibold text-white mb-3">
-                  {feature.title}
-                </h3>
-                <p class="text-gray-400 leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
-            )}
-          </For>
+function LeaderboardTable(props: {
+  title: string
+  subtitle: string
+  icon: any
+  data: LeaderboardEntry[]
+}) {
+  return (
+    <div class="border border-[#262626] overflow-hidden bg-[#0a0a0a]">
+      <div class="px-5 py-4 border-b border-[#262626] flex items-center gap-3">
+        {props.icon}
+        <div>
+          <h2 class="text-[#e5e5e5] text-base font-semibold m-0">{props.title}</h2>
+          <p class="text-[#525252] text-xs m-0 mt-0.5">{props.subtitle}</p>
         </div>
-      </section>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[#262626] text-[#525252] text-xs uppercase tracking-wider">
+              <th class="text-left py-3 px-5 font-medium w-16">#</th>
+              <th class="text-left py-3 px-2 font-medium">User</th>
+              <th class="text-right py-3 px-2 font-medium">Tokens</th>
+              <th class="text-right py-3 px-2 font-medium hidden sm:table-cell">Model</th>
+              <th class="text-right py-3 px-5 font-medium hidden md:table-cell">Sessions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={props.data}>
+              {(entry) => (
+                <tr class="border-b border-[#1a1a1a] hover:bg-[#1a1a1a]/50 transition-colors">
+                  <td class="py-3 px-5">
+                    <RankBadge rank={entry.rank} />
+                  </td>
+                  <td class="py-3 px-2">
+                    <span class={`font-medium ${entry.rank <= 3 ? 'text-[#e5e5e5]' : 'text-[#a3a3a3]'}`}>
+                      {entry.name}
+                    </span>
+                  </td>
+                  <td class="py-3 px-2 text-right">
+                    <span class="text-[#22d3ee] font-semibold">{formatTokens(entry.tokens)}</span>
+                  </td>
+                  <td class="py-3 px-2 text-right hidden sm:table-cell">
+                    <span class="text-[#525252] text-xs bg-[#1a1a1a] px-2 py-1 rounded">
+                      {entry.model}
+                    </span>
+                  </td>
+                  <td class="py-3 px-5 text-right text-[#525252] hidden md:table-cell">
+                    {entry.sessions}
+                  </td>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function Home() {
+  return (
+    <div class="max-w-6xl mx-auto px-6 py-12">
+      <div class="mb-12">
+        <h1 class="text-4xl md:text-5xl font-bold text-[#e5e5e5] tracking-tight mb-3">
+          The open source AI coding leaderboard
+        </h1>
+        <p class="text-[#525252] text-lg max-w-2xl">
+          Track token usage across OpenCode users. Anonymous, open, community-driven.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-10">
+        <LeaderboardTable
+          title="Today's Leaderboard"
+          subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          icon={<Flame size={20} class="text-[#f97316]" />}
+          data={dailyLeaderboard}
+        />
+
+        <LeaderboardTable
+          title="All Time"
+          subtitle="Cumulative token usage since launch"
+          icon={<Trophy size={20} class="text-[#fbbf24]" />}
+          data={allTimeLeaderboard}
+        />
+      </div>
     </div>
   )
 }
