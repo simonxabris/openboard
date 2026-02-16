@@ -10,9 +10,7 @@
     "test": "vitest run",
     "deploy": "pnpm run build && wrangler deploy",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.13.8",

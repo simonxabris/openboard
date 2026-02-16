@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/solid-router'
+import { queryOptions, useQuery } from '@tanstack/solid-query'
+import { createServerFn } from '@tanstack/solid-start'
 import { For } from 'solid-js'
 import { Trophy, Flame, Crown } from 'lucide-solid'
 
-export const Route = createFileRoute('/')({ component: Home })
+const LEADERBOARD_LIMIT = 10
 
 type LeaderboardEntry = {
   rank: number
@@ -12,31 +14,120 @@ type LeaderboardEntry = {
   sessions: number
 }
 
-const dailyLeaderboard: LeaderboardEntry[] = [
-  { rank: 1, name: 'phantom_dev', tokens: 2_847_312, model: 'claude-4-sonnet', sessions: 47 },
-  { rank: 2, name: 'rust_enjoyer', tokens: 2_134_891, model: 'gpt-4.1', sessions: 38 },
-  { rank: 3, name: 'nix_wizard', tokens: 1_923_445, model: 'claude-4-sonnet', sessions: 34 },
-  { rank: 4, name: 'async_await', tokens: 1_567_230, model: 'gemini-2.5-pro', sessions: 29 },
-  { rank: 5, name: 'kernel_panic', tokens: 1_245_678, model: 'claude-4-sonnet', sessions: 25 },
-  { rank: 6, name: 'malloc_free', tokens: 987_432, model: 'gpt-4.1', sessions: 21 },
-  { rank: 7, name: 'git_rebase', tokens: 876_321, model: 'deepseek-r1', sessions: 18 },
-  { rank: 8, name: 'null_ptr', tokens: 654_219, model: 'claude-4-sonnet', sessions: 14 },
-  { rank: 9, name: 'sudo_rm_rf', tokens: 543_210, model: 'gemini-2.5-pro', sessions: 12 },
-  { rank: 10, name: 'vim_btw', tokens: 432_198, model: 'gpt-4.1', sessions: 9 },
-]
+type LeaderboardScope = 'daily' | 'all-time'
 
-const allTimeLeaderboard: LeaderboardEntry[] = [
-  { rank: 1, name: 'rust_enjoyer', tokens: 48_293_412, model: 'claude-4-sonnet', sessions: 892 },
-  { rank: 2, name: 'phantom_dev', tokens: 41_234_567, model: 'gpt-4.1', sessions: 743 },
-  { rank: 3, name: 'nix_wizard', tokens: 37_891_234, model: 'claude-4-sonnet', sessions: 681 },
-  { rank: 4, name: 'kernel_panic', tokens: 29_876_543, model: 'gemini-2.5-pro', sessions: 534 },
-  { rank: 5, name: 'async_await', tokens: 24_567_890, model: 'claude-4-sonnet', sessions: 467 },
-  { rank: 6, name: 'git_rebase', tokens: 19_345_678, model: 'deepseek-r1', sessions: 389 },
-  { rank: 7, name: 'sudo_rm_rf', tokens: 15_234_567, model: 'gpt-4.1', sessions: 312 },
-  { rank: 8, name: 'malloc_free', tokens: 12_876_543, model: 'claude-4-sonnet', sessions: 256 },
-  { rank: 9, name: 'null_ptr', tokens: 9_432_100, model: 'gemini-2.5-pro', sessions: 198 },
-  { rank: 10, name: 'vim_btw', tokens: 7_654_321, model: 'gpt-4.1', sessions: 145 },
-]
+type LeaderboardModelRow = {
+  userId: string
+  displayName: string | null
+  model: string
+  tokens: number | string
+  sessions: number | string
+}
+
+function getUtcDayKey() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function getDisplayName(userId: string, displayName: string | null) {
+  if (typeof displayName === 'string' && displayName.trim().length > 0) {
+    return displayName.trim()
+  }
+
+  return `anon_${userId.slice(0, 8)}`
+}
+
+async function fetchLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]> {
+  const [{ createDb }, { usageEvents, users }, { eq, sql }] = await Promise.all([
+    import('../db'),
+    import('../db/schema'),
+    import('drizzle-orm'),
+  ])
+
+  const db = createDb()
+
+  const baseQuery = db
+    .select({
+      userId: usageEvents.userId,
+      displayName: users.displayName,
+      model: usageEvents.model,
+      tokens: sql<number>`sum(${usageEvents.tokens})`,
+      sessions: sql<number>`count(*)`,
+    })
+    .from(usageEvents)
+    .leftJoin(users, eq(users.id, usageEvents.userId))
+
+  const rows = (scope === 'daily'
+    ? await baseQuery
+        .where(eq(usageEvents.usageDay, getUtcDayKey()))
+        .groupBy(usageEvents.userId, users.displayName, usageEvents.model)
+    : await baseQuery.groupBy(usageEvents.userId, users.displayName, usageEvents.model)) as Array<LeaderboardModelRow>
+
+  const byUser = new Map<
+    string,
+    { name: string; tokens: number; sessions: number; topModel: string; topModelTokens: number }
+  >()
+
+  for (const row of rows) {
+    const rowTokens = Number(row.tokens ?? 0)
+    const rowSessions = Number(row.sessions ?? 0)
+    const current =
+      byUser.get(row.userId) ??
+      ({
+        name: getDisplayName(row.userId, row.displayName),
+        tokens: 0,
+        sessions: 0,
+        topModel: row.model,
+        topModelTokens: -1,
+      } as const)
+
+    const next = {
+      ...current,
+      tokens: current.tokens + rowTokens,
+      sessions: current.sessions + rowSessions,
+      topModel: rowTokens > current.topModelTokens ? row.model : current.topModel,
+      topModelTokens: Math.max(current.topModelTokens, rowTokens),
+    }
+    byUser.set(row.userId, next)
+  }
+
+  return [...byUser.values()]
+    .sort((a, b) => b.tokens - a.tokens)
+    .slice(0, LEADERBOARD_LIMIT)
+    .map((entry, index) => ({
+      rank: index + 1,
+      name: entry.name,
+      tokens: entry.tokens,
+      model: entry.topModel,
+      sessions: entry.sessions,
+    }))
+}
+
+const getDailyLeaderboard = createServerFn({ method: 'GET' }).handler(async () => {
+  return fetchLeaderboard('daily')
+})
+
+const getAllTimeLeaderboard = createServerFn({ method: 'GET' }).handler(async () => {
+  return fetchLeaderboard('all-time')
+})
+
+const dailyLeaderboardQueryOptions = queryOptions({
+  queryKey: ['leaderboard', 'daily'],
+  queryFn: () => getDailyLeaderboard(),
+})
+
+const allTimeLeaderboardQueryOptions = queryOptions({
+  queryKey: ['leaderboard', 'all-time'],
+  queryFn: () => getAllTimeLeaderboard(),
+})
+
+export const Route = createFileRoute('/')({
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(dailyLeaderboardQueryOptions),
+      context.queryClient.ensureQueryData(allTimeLeaderboardQueryOptions),
+    ]),
+  component: Home,
+})
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -134,6 +225,9 @@ function LeaderboardTable(props: {
 }
 
 function Home() {
+  const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions)
+  const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions)
+
   return (
     <div class="max-w-6xl mx-auto px-6 py-12">
       <div class="mb-12">
@@ -150,14 +244,14 @@ function Home() {
           title="Today's Leaderboard"
           subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           icon={<Flame size={20} class="text-[#f97316]" />}
-          data={dailyLeaderboard}
+          data={dailyLeaderboardQuery.data ?? []}
         />
 
         <LeaderboardTable
           title="All Time"
           subtitle="Cumulative token usage since launch"
           icon={<Trophy size={20} class="text-[#fbbf24]" />}
-          data={allTimeLeaderboard}
+          data={allTimeLeaderboardQuery.data ?? []}
         />
       </div>
     </div>
