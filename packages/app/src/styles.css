@@ -9,7 +9,7 @@
   --text-primary: #e5e5e5;
   --text-secondary: #a3a3a3;
   --text-muted: #525252;
-  --accent: #22d3ee;
+  --accent: #0273b5;
   --accent-dim: rgba(34, 211, 238, 0.1);
   --gold: #fbbf24;
   --silver: #94a3b8;
@@ -27,4 +27,18 @@ body {
 
 code {
   font-family: "JetBrains Mono", monospace;
+}
+
+.setup-dialog {
+  color: var(--text-primary);
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+.setup-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2px);
 }

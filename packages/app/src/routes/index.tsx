@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { queryOptions, useQuery } from "@tanstack/solid-query";
 import { For, Show, createSignal } from "solid-js";
-import { Trophy, Flame, Crown } from "lucide-solid";
+import openboardPluginTemplate from "../opencode-plugin.ts?raw";
+
 import {
   createUser,
   getAllTimeLeaderboard,
@@ -34,45 +35,22 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-function RankBadge(props: { rank: number }) {
-  if (props.rank === 1) {
-    return (
-      <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#fbbf24]/10 text-[#fbbf24]">
-        <Crown size={16} />
-      </div>
-    );
-  }
-  if (props.rank === 2) {
-    return (
-      <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#94a3b8]/10 text-[#94a3b8] text-sm font-bold">
-        2
-      </div>
-    );
-  }
-  if (props.rank === 3) {
-    return (
-      <div class="flex items-center justify-center w-8 h-8 rounded-md bg-[#d97706]/10 text-[#d97706] text-sm font-bold">
-        3
-      </div>
-    );
-  }
+function RankDisplay(props: { rank: number }) {
   return (
-    <div class="flex items-center justify-center w-8 h-8 rounded-md text-[#525252] text-sm font-medium">
+    <span class="text-[#525252] text-sm font-medium">
       {props.rank}
-    </div>
+    </span>
   );
 }
 
 function LeaderboardTable(props: {
   title: string;
   subtitle: string;
-  icon: any;
   data: LeaderboardEntry[];
 }) {
   return (
     <div class="border border-[#262626] overflow-hidden bg-[#0a0a0a]">
-      <div class="px-5 py-4 border-b border-[#262626] flex items-center gap-3">
-        {props.icon}
+      <div class="px-5 py-4 border-b border-[#262626]">
         <div>
           <h2 class="text-[#e5e5e5] text-base font-semibold m-0">{props.title}</h2>
           <p class="text-[#525252] text-xs m-0 mt-0.5">{props.subtitle}</p>
@@ -93,7 +71,7 @@ function LeaderboardTable(props: {
               {(entry) => (
                 <tr class="border-b border-[#1a1a1a] hover:bg-[#1a1a1a]/50 transition-colors">
                   <td class="py-3 px-5">
-                    <RankBadge rank={entry.rank} />
+                    <RankDisplay rank={entry.rank} />
                   </td>
                   <td class="py-3 px-2">
                     <span
@@ -103,7 +81,7 @@ function LeaderboardTable(props: {
                     </span>
                   </td>
                   <td class="py-3 px-5 text-right">
-                    <span class="text-[#22d3ee] font-semibold">{formatTokens(entry.tokens)}</span>
+                    <span class="text-[var(--accent)] font-semibold">{formatTokens(entry.tokens)}</span>
                   </td>
                 </tr>
               )}
@@ -118,19 +96,27 @@ function LeaderboardTable(props: {
 function Home() {
   const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions);
   const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions);
+  let setupDialog: HTMLDialogElement | undefined;
   const [username, setUsername] = createSignal("");
   const [isCreatingUser, setIsCreatingUser] = createSignal(false);
   const [claimError, setClaimError] = createSignal<string | null>(null);
   const [claimedUsername, setClaimedUsername] = createSignal<string | null>(null);
   const [secretKey, setSecretKey] = createSignal<string | null>(null);
-  const [secretCopied, setSecretCopied] = createSignal(false);
+  const [setupScriptCopied, setSetupScriptCopied] = createSignal(false);
 
-  const onClaimSubmit = async (event: SubmitEvent) => {
-    event.preventDefault();
+  const openSetupDialog = () => {
+    setupDialog?.showModal();
+  };
+
+  const closeSetupDialog = () => {
+    setupDialog?.close();
+  };
+
+  const onCreateUsername = async () => {
     if (isCreatingUser()) return;
 
     setClaimError(null);
-    setSecretCopied(false);
+    setSetupScriptCopied(false);
     setIsCreatingUser(true);
 
     try {
@@ -157,15 +143,46 @@ function Home() {
     }
   };
 
-  const onCopySecret = async () => {
-    const value = secretKey();
-    if (!value) return;
+  const generatedPluginCode = () => {
+    const setupUsername = claimedUsername();
+    const setupSecretKey = secretKey();
+    if (!setupUsername || !setupSecretKey) return "";
+
+    const usernameLiteral = JSON.stringify(setupUsername);
+    const secretKeyLiteral = JSON.stringify(setupSecretKey);
+
+    return openboardPluginTemplate
+      .replace(/const USAGE_EVENTS_USERNAME = .+;/, `const USAGE_EVENTS_USERNAME = ${usernameLiteral};`)
+      .replace(
+        /const USAGE_EVENTS_SECRET_KEY = .+;/,
+        `const USAGE_EVENTS_SECRET_KEY = ${secretKeyLiteral};`,
+      );
+  };
+
+  const generatedSetupScript = () => {
+    const pluginCode = generatedPluginCode();
+    if (!pluginCode) return "";
+    const pluginCodeBase64 = btoa(unescape(encodeURIComponent(pluginCode)));
+
+    return `#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "$HOME/.config/opencode/plugins"
+
+printf '%s' '${pluginCodeBase64}' | base64 --decode > "$HOME/.config/opencode/plugins/openboard-usage.ts"
+
+echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usage.ts"`;
+  };
+
+  const onCopySetupScript = async () => {
+    const script = generatedSetupScript();
+    if (!script) return;
 
     try {
-      await navigator.clipboard.writeText(value);
-      setSecretCopied(true);
+      await navigator.clipboard.writeText(script);
+      setSetupScriptCopied(true);
     } catch {
-      setClaimError("Unable to copy automatically. Copy the secret manually.");
+      setClaimError("Unable to copy automatically. Copy the setup script manually.");
     }
   };
 
@@ -180,57 +197,14 @@ function Home() {
         </p>
       </div>
 
-      <div class="border border-[#262626] bg-[#0a0a0a] p-5 mb-10">
-        <h2 class="text-[#e5e5e5] text-base font-semibold m-0">Claim a username</h2>
-        <p class="text-[#737373] text-sm mt-2 mb-4">
-          Claiming creates your user and returns a secret key. You must store it securely and send
-          it with ingestion requests.
-        </p>
-
-        <form class="flex flex-col sm:flex-row gap-3" onSubmit={onClaimSubmit}>
-          <input
-            type="text"
-            value={username()}
-            onInput={(event) => setUsername(event.currentTarget.value)}
-            placeholder="your_username"
-            autocomplete="off"
-            class="flex-1 px-3 py-2 bg-[#111111] border border-[#262626] text-[#e5e5e5] text-sm outline-none focus:border-[#22d3ee]"
-          />
-          <button
-            type="submit"
-            disabled={isCreatingUser()}
-            class="px-4 py-2 bg-[#22d3ee] text-[#0a0a0a] text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isCreatingUser() ? "Creating..." : "Claim username"}
-          </button>
-        </form>
-
-        <Show when={claimError()}>
-          {(error) => <p class="text-[#f87171] text-sm mt-3">{error()}</p>}
-        </Show>
-
-        <Show when={secretKey()}>
-          {(secret) => (
-            <div class="mt-4 border border-[#262626] bg-[#111111] p-4">
-              <p class="text-[#22d3ee] text-sm m-0">
-                Claimed <span class="font-semibold">{claimedUsername()}</span>
-              </p>
-              <p class="text-[#facc15] text-xs mt-2 mb-3">
-                This secret is only shown once. Save it now.
-              </p>
-              <code class="block text-[#e5e5e5] text-xs break-all bg-[#0a0a0a] p-3 border border-[#262626]">
-                {secret()}
-              </code>
-              <button
-                type="button"
-                onClick={onCopySecret}
-                class="mt-3 px-3 py-1.5 border border-[#262626] text-[#a3a3a3] text-xs hover:text-[#e5e5e5] hover:border-[#3f3f46]"
-              >
-                {secretCopied() ? "Copied" : "Copy secret"}
-              </button>
-            </div>
-          )}
-        </Show>
+      <div class="mb-6">
+        <button
+          type="button"
+          onClick={openSetupDialog}
+          class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold hover:bg-[#67e8f9]"
+        >
+          Setup
+        </button>
       </div>
 
       <div class="flex flex-col gap-10">
@@ -242,17 +216,103 @@ function Home() {
             month: "long",
             day: "numeric",
           })}
-          icon={<Flame size={20} class="text-[#f97316]" />}
           data={dailyLeaderboardQuery.data ?? []}
         />
 
         <LeaderboardTable
           title="All Time"
           subtitle="Cumulative token usage since launch"
-          icon={<Trophy size={20} class="text-[#fbbf24]" />}
           data={allTimeLeaderboardQuery.data ?? []}
         />
       </div>
+
+      <dialog
+        ref={(element) => {
+          setupDialog = element;
+        }}
+        class="setup-dialog w-[min(920px,calc(100vw-2rem))] bg-[#0a0a0a] border border-[#262626] p-0"
+      >
+        <div class="border-b border-[#262626] px-5 py-4 flex items-center justify-between">
+          <h2 class="text-[#e5e5e5] text-base font-semibold m-0">OpenBoard setup</h2>
+          <button
+            type="button"
+            class="text-[#737373] hover:text-[#e5e5e5] text-sm"
+            onClick={closeSetupDialog}
+            aria-label="Close setup dialog"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="p-5">
+          <p class="text-[#a3a3a3] text-sm mt-0 mb-2">
+            Create a username first. We generate a secret key tied to that user.
+          </p>
+          <p class="text-[#a3a3a3] text-sm mt-0 mb-5">
+            The key is shown once. Save it, then install the OpenBoard plugin with the setup
+            script.
+          </p>
+
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              value={username()}
+              onInput={(event) => setUsername(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void onCreateUsername();
+                }
+              }}
+              placeholder="your_username"
+              autocomplete="off"
+              class="flex-1 px-3 py-2 bg-[#111111] border border-[#262626] text-[#e5e5e5] text-sm outline-none focus:border-[var(--accent)]"
+            />
+            <button
+              type="button"
+              onClick={() => void onCreateUsername()}
+              disabled={isCreatingUser()}
+              class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isCreatingUser() ? "Creating..." : "Create username"}
+            </button>
+          </div>
+
+          <Show when={claimError()}>
+            {(error) => <p class="text-[#f87171] text-sm mt-3 mb-0">{error()}</p>}
+          </Show>
+
+          <Show when={secretKey()}>
+            {(secret) => (
+              <div class="mt-5 border border-[#262626] bg-[#111111] p-4">
+                <p class="text-[var(--accent)] text-sm m-0">
+                  Claimed <span class="font-semibold">{claimedUsername()}</span>
+                </p>
+                <p class="text-[#facc15] text-xs mt-2 mb-3">
+                  Save this key now. You won’t be able to view it again.
+                </p>
+                <code class="block text-[#e5e5e5] text-xs break-all bg-[#0a0a0a] p-3 border border-[#262626]">
+                  {secret()}
+                </code>
+
+                <div class="mt-4">
+                  <button
+                    type="button"
+                    onClick={onCopySetupScript}
+                    class="px-3 py-1.5 border border-[var(--accent)] text-[var(--accent)] text-xs font-semibold hover:bg-[var(--accent)]/10"
+                  >
+                    {setupScriptCopied() ? "Setup script copied" : "Copy setup script"}
+                  </button>
+                </div>
+
+                <pre class="mt-3 overflow-x-auto text-[#e5e5e5] text-xs bg-[#0a0a0a] p-3 border border-[#262626]">
+                  <code>{generatedPluginCode()}</code>
+                </pre>
+              </div>
+            )}
+          </Show>
+        </div>
+      </dialog>
     </div>
   );
 }

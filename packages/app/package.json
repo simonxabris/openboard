@@ -24,6 +24,7 @@
     "@tanstack/solid-router-devtools": "^1.133.20",
     "@tanstack/solid-router-ssr-query": "^1.132.25",
     "@tanstack/solid-start": "^1.133.20",
+    "better-auth": "^1.4.18",
     "drizzle-orm": "^0.45.1",
     "lucide-solid": "^0.544.0",
     "solid-js": "^1.9.9",
