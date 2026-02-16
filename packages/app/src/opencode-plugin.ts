@@ -1,8 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin";
 
 const USAGE_EVENTS_URL = "https://openboard.abrissimon.workers.dev/api/ingest";
-const USAGE_EVENTS_USERNAME = "test";
-const USAGE_EVENTS_SECRET_KEY = "ob_sk_f2738409a62879459aafb5b9da273fb27b9c09e863480780";
+const USAGE_EVENTS_API_KEY = "ob_sk_f2738409a62879459aafb5b9da273fb27b9c09e863480780";
 
 export const OpenboardPlugin: Plugin = async () => {
   const model = new Map<string, { model: string; provider: string }>();
@@ -28,8 +27,7 @@ export const OpenboardPlugin: Plugin = async () => {
       const usage = model.get(part.messageID);
       const body = {
         auth: {
-          username: USAGE_EVENTS_USERNAME,
-          secretKey: USAGE_EVENTS_SECRET_KEY,
+          apiKey: USAGE_EVENTS_API_KEY,
         },
         event: {
           id: `${part.sessionID}:${part.messageID}:${part.id}`,

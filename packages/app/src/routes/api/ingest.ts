@@ -1,16 +1,22 @@
 import { createFileRoute } from "@tanstack/solid-router";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { createDb } from "../../db";
-import { usageEvents, users } from "../../db/schema";
-import { hashSecretKey, normalizeUsername } from "../../server/user-auth";
+import { usageEvents } from "../../db/schema";
+import { auth } from "../../lib/auth";
 
 const MAX_EVENTS_PER_REQUEST = 500;
 
-const ingestAuthSchema = z.object({
-  username: z.string().trim().min(3).max(32),
-  secretKey: z.string().trim().min(16).max(256),
-});
+const ingestAuthSchema = z
+  .object({
+    username: z.string().trim().min(1).max(120).optional(),
+    secretKey: z.string().trim().min(16).max(512).optional(),
+    apiKey: z.string().trim().min(16).max(512).optional(),
+  })
+  .refine((value) => Boolean(value.secretKey || value.apiKey), {
+    message: "Either auth.secretKey or auth.apiKey is required",
+    path: ["apiKey"],
+  });
 
 const ingestEventSchema = z.object({
   id: z.string().trim().min(1).max(128),
@@ -114,27 +120,21 @@ export const Route = createFileRoute("/api/ingest")({
 
         const db = createDb();
         try {
-          const usernameNormalized = normalizeUsername(parsed.data.auth.username);
-          const secretKeyHash = await hashSecretKey(parsed.data.auth.secretKey);
-          const userRows = await db
-            .select({
-              id: users.id,
-              secretKeyHash: users.secretKeyHash,
-            })
-            .from(users)
-            .where(eq(users.usernameNormalized, usernameNormalized))
-            .limit(1);
+          const providedApiKey = parsed.data.auth.apiKey ?? parsed.data.auth.secretKey;
+          const verifiedKey = await auth.api.verifyApiKey({
+            request,
+            headers: request.headers,
+            body: { key: providedApiKey },
+          });
 
-          const user = userRows[0];
-          if (!user || user.secretKeyHash !== secretKeyHash) {
+          if (!verifiedKey.valid || !verifiedKey.key) {
             return json(401, {
               ok: false,
               error: "invalid_credentials",
-              message: "Invalid username or secret key",
+              message: "Invalid API key",
             });
           }
-
-          await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, user.id));
+          const userId = verifiedKey.key.userId;
 
           let applied = 0;
           let stale = 0;
@@ -148,7 +148,7 @@ export const Route = createFileRoute("/api/ingest")({
               .insert(usageEvents)
               .values({
                 id: event.id,
-                userId: user.id,
+                userId,
                 sessionId: event.sessionId.trim(),
                 usageDay,
                 inputTokens: event.inputTokens,

@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { queryOptions, useQuery } from "@tanstack/solid-query";
 import { For, Show, createSignal } from "solid-js";
-import openboardPluginTemplate from "../opencode-plugin.ts?raw";
 
+import { authClient } from "../lib/auth-client";
 import {
-  createUser,
   getAllTimeLeaderboard,
   getDailyLeaderboard,
   type LeaderboardEntry,
@@ -35,19 +34,21 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-function RankDisplay(props: { rank: number }) {
-  return (
-    <span class="text-[#525252] text-sm font-medium">
-      {props.rank}
-    </span>
-  );
+function getXProfileUrl(handle: string): string {
+  const username = handle.trim().replace(/^@/, "");
+  return `https://x.com/${encodeURIComponent(username)}`;
 }
 
-function LeaderboardTable(props: {
-  title: string;
-  subtitle: string;
-  data: LeaderboardEntry[];
-}) {
+function getDisplayHandle(handle: string): string {
+  const username = handle.trim().replace(/^@/, "");
+  return `@${username}`;
+}
+
+function RankDisplay(props: { rank: number }) {
+  return <span class="text-[#525252] text-sm font-medium">{props.rank}</span>;
+}
+
+function LeaderboardTable(props: { title: string; subtitle: string; data: LeaderboardEntry[] }) {
   return (
     <div class="border border-[#262626] overflow-hidden bg-[#0a0a0a]">
       <div class="px-5 py-4 border-b border-[#262626]">
@@ -74,14 +75,40 @@ function LeaderboardTable(props: {
                     <RankDisplay rank={entry.rank} />
                   </td>
                   <td class="py-3 px-2">
-                    <span
-                      class={`font-medium ${entry.rank <= 3 ? "text-[#e5e5e5]" : "text-[#a3a3a3]"}`}
-                    >
-                      {entry.name}
-                    </span>
+                    <div class="flex items-center gap-2.5">
+                      <div class="h-8 w-8 overflow-hidden rounded-full bg-[#1a1a1a] border border-[#262626]">
+                        <Show
+                          when={entry.imageUrl}
+                          fallback={
+                            <span class="h-full w-full grid place-items-center text-[10px] font-semibold text-[#a3a3a3]">
+                              {entry.handle.replace(/^@/, "").slice(0, 2).toUpperCase()}
+                            </span>
+                          }
+                        >
+                          {(imageUrl) => (
+                            <img
+                              src={imageUrl()}
+                              alt={`${getDisplayHandle(entry.handle)} avatar`}
+                              class="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )}
+                        </Show>
+                      </div>
+                      <a
+                        href={getXProfileUrl(entry.handle)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class={`font-medium ${entry.rank <= 3 ? "text-[#e5e5e5]" : "text-[#a3a3a3]"}`}
+                      >
+                        {getDisplayHandle(entry.handle)}
+                      </a>
+                    </div>
                   </td>
                   <td class="py-3 px-5 text-right">
-                    <span class="text-[var(--accent)] font-semibold">{formatTokens(entry.tokens)}</span>
+                    <span class="text-[var(--accent)] font-semibold">
+                      {formatTokens(entry.tokens)}
+                    </span>
                   </td>
                 </tr>
               )}
@@ -96,93 +123,29 @@ function LeaderboardTable(props: {
 function Home() {
   const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions);
   const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions);
-  let setupDialog: HTMLDialogElement | undefined;
-  const [username, setUsername] = createSignal("");
-  const [isCreatingUser, setIsCreatingUser] = createSignal(false);
-  const [claimError, setClaimError] = createSignal<string | null>(null);
-  const [claimedUsername, setClaimedUsername] = createSignal<string | null>(null);
-  const [secretKey, setSecretKey] = createSignal<string | null>(null);
-  const [setupScriptCopied, setSetupScriptCopied] = createSignal(false);
+  const session = authClient.useSession();
+  const [isSigningIn, setIsSigningIn] = createSignal(false);
+  const [signInError, setSignInError] = createSignal<string | null>(null);
 
-  const openSetupDialog = () => {
-    setupDialog?.showModal();
-  };
+  const onSignInWithX = async () => {
+    if (isSigningIn()) return;
 
-  const closeSetupDialog = () => {
-    setupDialog?.close();
-  };
-
-  const onCreateUsername = async () => {
-    if (isCreatingUser()) return;
-
-    setClaimError(null);
-    setSetupScriptCopied(false);
-    setIsCreatingUser(true);
+    setSignInError(null);
+    setIsSigningIn(true);
 
     try {
-      const result = await createUser({
-        data: {
-          username: username(),
-        },
+      const result = await authClient.signIn.social({
+        provider: "twitter",
+        callbackURL: "/onboard",
       });
 
-      if (!result.ok) {
-        setClaimedUsername(null);
-        setSecretKey(null);
-        setClaimError(result.message);
-        return;
+      if (result.error) {
+        setSignInError(result.error.message || "Unable to start X sign-in.");
       }
-
-      setClaimedUsername(result.username);
-      setSecretKey(result.secretKey);
-      setUsername(result.username);
     } catch {
-      setClaimError("Failed to create user");
+      setSignInError("Unable to start X sign-in.");
     } finally {
-      setIsCreatingUser(false);
-    }
-  };
-
-  const generatedPluginCode = () => {
-    const setupUsername = claimedUsername();
-    const setupSecretKey = secretKey();
-    if (!setupUsername || !setupSecretKey) return "";
-
-    const usernameLiteral = JSON.stringify(setupUsername);
-    const secretKeyLiteral = JSON.stringify(setupSecretKey);
-
-    return openboardPluginTemplate
-      .replace(/const USAGE_EVENTS_USERNAME = .+;/, `const USAGE_EVENTS_USERNAME = ${usernameLiteral};`)
-      .replace(
-        /const USAGE_EVENTS_SECRET_KEY = .+;/,
-        `const USAGE_EVENTS_SECRET_KEY = ${secretKeyLiteral};`,
-      );
-  };
-
-  const generatedSetupScript = () => {
-    const pluginCode = generatedPluginCode();
-    if (!pluginCode) return "";
-    const pluginCodeBase64 = btoa(unescape(encodeURIComponent(pluginCode)));
-
-    return `#!/usr/bin/env bash
-set -euo pipefail
-
-mkdir -p "$HOME/.config/opencode/plugins"
-
-printf '%s' '${pluginCodeBase64}' | base64 --decode > "$HOME/.config/opencode/plugins/openboard-usage.ts"
-
-echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usage.ts"`;
-  };
-
-  const onCopySetupScript = async () => {
-    const script = generatedSetupScript();
-    if (!script) return;
-
-    try {
-      await navigator.clipboard.writeText(script);
-      setSetupScriptCopied(true);
-    } catch {
-      setClaimError("Unable to copy automatically. Copy the setup script manually.");
+      setIsSigningIn(false);
     }
   };
 
@@ -190,22 +153,82 @@ echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usa
     <div class="max-w-6xl mx-auto px-6 py-12">
       <div class="mb-12">
         <h1 class="text-4xl md:text-5xl font-bold text-[#e5e5e5] tracking-tight mb-3">
-          The open source AI coding leaderboard
+          Daily leaderboard for OpenCode
         </h1>
-        <p class="text-[#525252] text-lg max-w-2xl">
-          Track token usage across OpenCode users. Anonymous, open, community-driven.
-        </p>
+        <p class="text-[#525252] text-lg max-w-2xl">Who will generate the most slop today?</p>
       </div>
 
-      <div class="mb-6">
-        <button
-          type="button"
-          onClick={openSetupDialog}
-          class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold hover:bg-[#67e8f9]"
-        >
-          Setup
-        </button>
-      </div>
+      <Show when={!session().data?.user}>
+        <div class="mb-10 border border-[#262626] bg-[#0a0a0a] p-6">
+          <div class="border border-[#262626] bg-[#111111] px-4 py-3 mb-5 flex items-start gap-3">
+            <span class="text-[var(--accent)] text-sm leading-relaxed shrink-0">🔒</span>
+            <p class="text-[#a3a3a3] text-sm leading-relaxed m-0">
+              The plugin only sends anonymous session IDs and token counts —{" "}
+              <span class="text-[#e5e5e5] font-semibold">no code, prompts, or personal data</span>{" "}
+              ever leaves your machine. You can verify this yourself when setting up the plugin —
+              the source is fully open.
+            </p>
+          </div>
+
+          <p class="text-[#525252] text-xs uppercase tracking-[0.16em] m-0 mb-5">
+            Get on the board
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Step 1 */}
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center gap-3">
+                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[var(--accent)] text-[var(--accent)] text-xs font-bold">
+                  1
+                </span>
+                <span class="text-[#e5e5e5] text-sm font-semibold">Sign in with X</span>
+              </div>
+              <p class="text-[#525252] text-xs leading-relaxed m-0 pl-10">
+                Connect your X account so your usage appears on the leaderboard.
+              </p>
+              <div class="pl-10 mt-1">
+                <button
+                  type="button"
+                  onClick={() => void onSignInWithX()}
+                  disabled={isSigningIn()}
+                  class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold hover:bg-[#67e8f9] disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSigningIn() ? "Redirecting..." : "Sign in →"}
+                </button>
+                <Show when={signInError()}>
+                  {(error) => <p class="text-[#f87171] text-xs m-0 mt-2">{error()}</p>}
+                </Show>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center gap-3">
+                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[#262626] text-[#525252] text-xs font-bold">
+                  2
+                </span>
+                <span class="text-[#a3a3a3] text-sm font-semibold">Setup plugin</span>
+              </div>
+              <p class="text-[#525252] text-xs leading-relaxed m-0 pl-10">
+                Install the OpenCode plugin and paste your token to start reporting usage.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center gap-3">
+                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[#262626] text-[#525252] text-xs font-bold">
+                  3
+                </span>
+                <span class="text-[#a3a3a3] text-sm font-semibold">Good to go</span>
+              </div>
+              <p class="text-[#525252] text-xs leading-relaxed m-0 pl-10">
+                Start coding — your token usage will appear on the leaderboard automatically.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       <div class="flex flex-col gap-10">
         <LeaderboardTable
@@ -225,94 +248,6 @@ echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usa
           data={allTimeLeaderboardQuery.data ?? []}
         />
       </div>
-
-      <dialog
-        ref={(element) => {
-          setupDialog = element;
-        }}
-        class="setup-dialog w-[min(920px,calc(100vw-2rem))] bg-[#0a0a0a] border border-[#262626] p-0"
-      >
-        <div class="border-b border-[#262626] px-5 py-4 flex items-center justify-between">
-          <h2 class="text-[#e5e5e5] text-base font-semibold m-0">OpenBoard setup</h2>
-          <button
-            type="button"
-            class="text-[#737373] hover:text-[#e5e5e5] text-sm"
-            onClick={closeSetupDialog}
-            aria-label="Close setup dialog"
-          >
-            Close
-          </button>
-        </div>
-
-        <div class="p-5">
-          <p class="text-[#a3a3a3] text-sm mt-0 mb-2">
-            Create a username first. We generate a secret key tied to that user.
-          </p>
-          <p class="text-[#a3a3a3] text-sm mt-0 mb-5">
-            The key is shown once. Save it, then install the OpenBoard plugin with the setup
-            script.
-          </p>
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              value={username()}
-              onInput={(event) => setUsername(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void onCreateUsername();
-                }
-              }}
-              placeholder="your_username"
-              autocomplete="off"
-              class="flex-1 px-3 py-2 bg-[#111111] border border-[#262626] text-[#e5e5e5] text-sm outline-none focus:border-[var(--accent)]"
-            />
-            <button
-              type="button"
-              onClick={() => void onCreateUsername()}
-              disabled={isCreatingUser()}
-              class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isCreatingUser() ? "Creating..." : "Create username"}
-            </button>
-          </div>
-
-          <Show when={claimError()}>
-            {(error) => <p class="text-[#f87171] text-sm mt-3 mb-0">{error()}</p>}
-          </Show>
-
-          <Show when={secretKey()}>
-            {(secret) => (
-              <div class="mt-5 border border-[#262626] bg-[#111111] p-4">
-                <p class="text-[var(--accent)] text-sm m-0">
-                  Claimed <span class="font-semibold">{claimedUsername()}</span>
-                </p>
-                <p class="text-[#facc15] text-xs mt-2 mb-3">
-                  Save this key now. You won’t be able to view it again.
-                </p>
-                <code class="block text-[#e5e5e5] text-xs break-all bg-[#0a0a0a] p-3 border border-[#262626]">
-                  {secret()}
-                </code>
-
-                <div class="mt-4">
-                  <button
-                    type="button"
-                    onClick={onCopySetupScript}
-                    class="px-3 py-1.5 border border-[var(--accent)] text-[var(--accent)] text-xs font-semibold hover:bg-[var(--accent)]/10"
-                  >
-                    {setupScriptCopied() ? "Setup script copied" : "Copy setup script"}
-                  </button>
-                </div>
-
-                <pre class="mt-3 overflow-x-auto text-[#e5e5e5] text-xs bg-[#0a0a0a] p-3 border border-[#262626]">
-                  <code>{generatedPluginCode()}</code>
-                </pre>
-              </div>
-            )}
-          </Show>
-        </div>
-      </dialog>
     </div>
   );
 }
