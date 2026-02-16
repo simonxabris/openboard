@@ -1,114 +1,13 @@
 import { createFileRoute } from '@tanstack/solid-router'
 import { queryOptions, useQuery } from '@tanstack/solid-query'
-import { createServerFn } from '@tanstack/solid-start'
-import { For } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { Trophy, Flame, Crown } from 'lucide-solid'
-
-const LEADERBOARD_LIMIT = 10
-
-type LeaderboardEntry = {
-  rank: number
-  name: string
-  tokens: number
-  model: string
-  sessions: number
-}
-
-type LeaderboardScope = 'daily' | 'all-time'
-
-type LeaderboardModelRow = {
-  userId: string
-  displayName: string | null
-  model: string
-  tokens: number | string
-  sessions: number | string
-}
-
-function getUtcDayKey() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function getDisplayName(userId: string, displayName: string | null) {
-  if (typeof displayName === 'string' && displayName.trim().length > 0) {
-    return displayName.trim()
-  }
-
-  return `anon_${userId.slice(0, 8)}`
-}
-
-async function fetchLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]> {
-  const [{ createDb }, { usageEvents, users }, { eq, sql }] = await Promise.all([
-    import('../db'),
-    import('../db/schema'),
-    import('drizzle-orm'),
-  ])
-
-  const db = createDb()
-
-  const baseQuery = db
-    .select({
-      userId: usageEvents.userId,
-      displayName: users.displayName,
-      model: usageEvents.model,
-      tokens: sql<number>`sum(${usageEvents.tokens})`,
-      sessions: sql<number>`count(*)`,
-    })
-    .from(usageEvents)
-    .leftJoin(users, eq(users.id, usageEvents.userId))
-
-  const rows = (scope === 'daily'
-    ? await baseQuery
-        .where(eq(usageEvents.usageDay, getUtcDayKey()))
-        .groupBy(usageEvents.userId, users.displayName, usageEvents.model)
-    : await baseQuery.groupBy(usageEvents.userId, users.displayName, usageEvents.model)) as Array<LeaderboardModelRow>
-
-  const byUser = new Map<
-    string,
-    { name: string; tokens: number; sessions: number; topModel: string; topModelTokens: number }
-  >()
-
-  for (const row of rows) {
-    const rowTokens = Number(row.tokens ?? 0)
-    const rowSessions = Number(row.sessions ?? 0)
-    const current =
-      byUser.get(row.userId) ??
-      ({
-        name: getDisplayName(row.userId, row.displayName),
-        tokens: 0,
-        sessions: 0,
-        topModel: row.model,
-        topModelTokens: -1,
-      } as const)
-
-    const next = {
-      ...current,
-      tokens: current.tokens + rowTokens,
-      sessions: current.sessions + rowSessions,
-      topModel: rowTokens > current.topModelTokens ? row.model : current.topModel,
-      topModelTokens: Math.max(current.topModelTokens, rowTokens),
-    }
-    byUser.set(row.userId, next)
-  }
-
-  return [...byUser.values()]
-    .sort((a, b) => b.tokens - a.tokens)
-    .slice(0, LEADERBOARD_LIMIT)
-    .map((entry, index) => ({
-      rank: index + 1,
-      name: entry.name,
-      tokens: entry.tokens,
-      model: entry.topModel,
-      sessions: entry.sessions,
-    }))
-}
-
-const getDailyLeaderboard = createServerFn({ method: 'GET' }).handler(async () => {
-  return fetchLeaderboard('daily')
-})
-
-const getAllTimeLeaderboard = createServerFn({ method: 'GET' }).handler(async () => {
-  return fetchLeaderboard('all-time')
-})
+import {
+  createUser,
+  getAllTimeLeaderboard,
+  getDailyLeaderboard,
+  type LeaderboardEntry,
+} from '../server/functions'
 
 const dailyLeaderboardQueryOptions = queryOptions({
   queryKey: ['leaderboard', 'daily'],
@@ -186,9 +85,7 @@ function LeaderboardTable(props: {
             <tr class="border-b border-[#262626] text-[#525252] text-xs uppercase tracking-wider">
               <th class="text-left py-3 px-5 font-medium w-16">#</th>
               <th class="text-left py-3 px-2 font-medium">User</th>
-              <th class="text-right py-3 px-2 font-medium">Tokens</th>
-              <th class="text-right py-3 px-2 font-medium hidden sm:table-cell">Model</th>
-              <th class="text-right py-3 px-5 font-medium hidden md:table-cell">Sessions</th>
+              <th class="text-right py-3 px-5 font-medium">Tokens</th>
             </tr>
           </thead>
           <tbody>
@@ -203,16 +100,8 @@ function LeaderboardTable(props: {
                       {entry.name}
                     </span>
                   </td>
-                  <td class="py-3 px-2 text-right">
+                  <td class="py-3 px-5 text-right">
                     <span class="text-[#22d3ee] font-semibold">{formatTokens(entry.tokens)}</span>
-                  </td>
-                  <td class="py-3 px-2 text-right hidden sm:table-cell">
-                    <span class="text-[#525252] text-xs bg-[#1a1a1a] px-2 py-1 rounded">
-                      {entry.model}
-                    </span>
-                  </td>
-                  <td class="py-3 px-5 text-right text-[#525252] hidden md:table-cell">
-                    {entry.sessions}
                   </td>
                 </tr>
               )}
@@ -227,6 +116,56 @@ function LeaderboardTable(props: {
 function Home() {
   const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions)
   const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions)
+  const [username, setUsername] = createSignal('')
+  const [isCreatingUser, setIsCreatingUser] = createSignal(false)
+  const [claimError, setClaimError] = createSignal<string | null>(null)
+  const [claimedUsername, setClaimedUsername] = createSignal<string | null>(null)
+  const [secretKey, setSecretKey] = createSignal<string | null>(null)
+  const [secretCopied, setSecretCopied] = createSignal(false)
+
+  const onClaimSubmit = async (event: SubmitEvent) => {
+    event.preventDefault()
+    if (isCreatingUser()) return
+
+    setClaimError(null)
+    setSecretCopied(false)
+    setIsCreatingUser(true)
+
+    try {
+      const result = await createUser({
+        data: {
+          username: username(),
+        },
+      })
+
+      if (!result.ok) {
+        setClaimedUsername(null)
+        setSecretKey(null)
+        setClaimError(result.message)
+        return
+      }
+
+      setClaimedUsername(result.username)
+      setSecretKey(result.secretKey)
+      setUsername(result.username)
+    } catch {
+      setClaimError('Failed to create user')
+    } finally {
+      setIsCreatingUser(false)
+    }
+  }
+
+  const onCopySecret = async () => {
+    const value = secretKey()
+    if (!value) return
+
+    try {
+      await navigator.clipboard.writeText(value)
+      setSecretCopied(true)
+    } catch {
+      setClaimError('Unable to copy automatically. Copy the secret manually.')
+    }
+  }
 
   return (
     <div class="max-w-6xl mx-auto px-6 py-12">
@@ -237,6 +176,59 @@ function Home() {
         <p class="text-[#525252] text-lg max-w-2xl">
           Track token usage across OpenCode users. Anonymous, open, community-driven.
         </p>
+      </div>
+
+      <div class="border border-[#262626] bg-[#0a0a0a] p-5 mb-10">
+        <h2 class="text-[#e5e5e5] text-base font-semibold m-0">Claim a username</h2>
+        <p class="text-[#737373] text-sm mt-2 mb-4">
+          Claiming creates your user and returns a secret key. You must store it securely and send
+          it with ingestion requests.
+        </p>
+
+        <form class="flex flex-col sm:flex-row gap-3" onSubmit={onClaimSubmit}>
+          <input
+            type="text"
+            value={username()}
+            onInput={(event) => setUsername(event.currentTarget.value)}
+            placeholder="your_username"
+            autocomplete="off"
+            class="flex-1 px-3 py-2 bg-[#111111] border border-[#262626] text-[#e5e5e5] text-sm outline-none focus:border-[#22d3ee]"
+          />
+          <button
+            type="submit"
+            disabled={isCreatingUser()}
+            class="px-4 py-2 bg-[#22d3ee] text-[#0a0a0a] text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isCreatingUser() ? 'Creating...' : 'Claim username'}
+          </button>
+        </form>
+
+        <Show when={claimError()}>
+          {(error) => <p class="text-[#f87171] text-sm mt-3">{error()}</p>}
+        </Show>
+
+        <Show when={secretKey()}>
+          {(secret) => (
+            <div class="mt-4 border border-[#262626] bg-[#111111] p-4">
+              <p class="text-[#22d3ee] text-sm m-0">
+                Claimed <span class="font-semibold">{claimedUsername()}</span>
+              </p>
+              <p class="text-[#facc15] text-xs mt-2 mb-3">
+                This secret is only shown once. Save it now.
+              </p>
+              <code class="block text-[#e5e5e5] text-xs break-all bg-[#0a0a0a] p-3 border border-[#262626]">
+                {secret()}
+              </code>
+              <button
+                type="button"
+                onClick={onCopySecret}
+                class="mt-3 px-3 py-1.5 border border-[#262626] text-[#a3a3a3] text-xs hover:text-[#e5e5e5] hover:border-[#3f3f46]"
+              >
+                {secretCopied() ? 'Copied' : 'Copy secret'}
+              </button>
+            </div>
+          )}
+        </Show>
       </div>
 
       <div class="flex flex-col gap-10">

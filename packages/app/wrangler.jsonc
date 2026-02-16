@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
-  "compatibility_date": "2025-09-02",
+  "name": "openboard",
+  "compatibility_date": "2026-02-16",
   "compatibility_flags": [
     "nodejs_compat"
   ],
@@ -10,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "openboard-db",
-      "database_id": "local"
+      "database_id": "493719d8-10fe-4aa8-93a5-865ac8cae771"
     }
   ]
 }

@@ -1,21 +1,28 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2c552ca6-b265-4ee0-900b-13ef9e485f17",
+  "id": "1970197c-e94e-4407-9e64-dba35daaa1fe",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "usage_events": {
       "name": "usage_events",
       "columns": {
-        "id": {
-          "name": "id",
+        "user_id": {
+          "name": "user_id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "user_id": {
-          "name": "user_id",
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -28,8 +35,36 @@
           "notNull": true,
           "autoincrement": false
         },
-        "tokens": {
-          "name": "tokens",
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reasoning_tokens": {
+          "name": "reasoning_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cache_read_tokens": {
+          "name": "cache_read_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cache_write_tokens": {
+          "name": "cache_write_tokens",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -45,6 +80,13 @@
         "provider": {
           "name": "provider",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "event_sent_at": {
+          "name": "event_sent_at",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -65,11 +107,12 @@
         }
       },
       "indexes": {
-        "usage_events_user_occurred_idx": {
-          "name": "usage_events_user_occurred_idx",
+        "usage_events_user_session_event_sent_idx": {
+          "name": "usage_events_user_session_event_sent_idx",
           "columns": [
             "user_id",
-            "occurred_at"
+            "session_id",
+            "event_sent_at"
           ],
           "isUnique": false
         },
@@ -104,12 +147,44 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "usage_events_user_id_session_id_pk": {
+          "columns": [
+            "user_id",
+            "session_id"
+          ],
+          "name": "usage_events_user_id_session_id_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {
-        "usage_events_tokens_non_negative": {
-          "name": "usage_events_tokens_non_negative",
-          "value": "\"usage_events\".\"tokens\" >= 0"
+        "usage_events_session_id_not_empty": {
+          "name": "usage_events_session_id_not_empty",
+          "value": "length(trim(\"usage_events\".\"session_id\")) > 0"
+        },
+        "usage_events_id_not_empty": {
+          "name": "usage_events_id_not_empty",
+          "value": "length(trim(\"usage_events\".\"id\")) > 0"
+        },
+        "usage_events_input_tokens_non_negative": {
+          "name": "usage_events_input_tokens_non_negative",
+          "value": "\"usage_events\".\"input_tokens\" >= 0"
+        },
+        "usage_events_output_tokens_non_negative": {
+          "name": "usage_events_output_tokens_non_negative",
+          "value": "\"usage_events\".\"output_tokens\" >= 0"
+        },
+        "usage_events_reasoning_tokens_non_negative": {
+          "name": "usage_events_reasoning_tokens_non_negative",
+          "value": "\"usage_events\".\"reasoning_tokens\" >= 0"
+        },
+        "usage_events_cache_read_tokens_non_negative": {
+          "name": "usage_events_cache_read_tokens_non_negative",
+          "value": "\"usage_events\".\"cache_read_tokens\" >= 0"
+        },
+        "usage_events_cache_write_tokens_non_negative": {
+          "name": "usage_events_cache_write_tokens_non_negative",
+          "value": "\"usage_events\".\"cache_write_tokens\" >= 0"
         },
         "usage_events_model_not_empty": {
           "name": "usage_events_model_not_empty",
@@ -135,11 +210,25 @@
           "notNull": true,
           "autoincrement": false
         },
-        "display_name": {
-          "name": "display_name",
+        "username": {
+          "name": "username",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "username_normalized": {
+          "name": "username_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "secret_key_hash": {
+          "name": "secret_key_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "created_at": {
@@ -164,12 +253,32 @@
             "last_seen_at"
           ],
           "isUnique": false
+        },
+        "users_username_normalized_uq": {
+          "name": "users_username_normalized_uq",
+          "columns": [
+            "username_normalized"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "users_username_not_empty": {
+          "name": "users_username_not_empty",
+          "value": "length(trim(\"users\".\"username\")) > 0"
+        },
+        "users_username_normalized_lowercase": {
+          "name": "users_username_normalized_lowercase",
+          "value": "\"users\".\"username_normalized\" = lower(\"users\".\"username_normalized\")"
+        },
+        "users_secret_key_hash_not_empty": {
+          "name": "users_secret_key_hash_not_empty",
+          "value": "length(trim(\"users\".\"secret_key_hash\")) > 0"
+        }
+      }
     }
   },
   "views": {},
