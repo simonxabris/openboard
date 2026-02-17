@@ -6,11 +6,20 @@
     "nodejs_compat"
   ],
   "main": "@tanstack/solid-start/server-entry",
+  "vars": {
+    "BETTER_AUTH_URL": "https://openboard.space"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "openboard-db",
       "database_id": "493719d8-10fe-4aa8-93a5-865ac8cae771"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "openboard.space",
+      "custom_domain": true
     }
   ]
 }

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardRouteImport } from './routes/onboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PorfileHanldleRouteImport } from './routes/porfile/$hanldle'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo.tanstack-query'
 import { Route as ApiIngestRouteImport } from './routes/api/ingest'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -23,6 +24,11 @@ const OnboardRoute = OnboardRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PorfileHanldleRoute = PorfileHanldleRouteImport.update({
+  id: '/porfile/$hanldle',
+  path: '/porfile/$hanldle',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/onboard': typeof OnboardRoute
   '/api/ingest': typeof ApiIngestRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/porfile/$hanldle': typeof PorfileHanldleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/onboard': typeof OnboardRoute
   '/api/ingest': typeof ApiIngestRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/porfile/$hanldle': typeof PorfileHanldleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -61,6 +69,7 @@ export interface FileRoutesById {
   '/onboard': typeof OnboardRoute
   '/api/ingest': typeof ApiIngestRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/porfile/$hanldle': typeof PorfileHanldleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -70,15 +79,23 @@ export interface FileRouteTypes {
     | '/onboard'
     | '/api/ingest'
     | '/demo/tanstack-query'
+    | '/porfile/$hanldle'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/onboard' | '/api/ingest' | '/demo/tanstack-query' | '/api/auth/$'
+  to:
+    | '/'
+    | '/onboard'
+    | '/api/ingest'
+    | '/demo/tanstack-query'
+    | '/porfile/$hanldle'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/onboard'
     | '/api/ingest'
     | '/demo/tanstack-query'
+    | '/porfile/$hanldle'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -87,6 +104,7 @@ export interface RootRouteChildren {
   OnboardRoute: typeof OnboardRoute
   ApiIngestRoute: typeof ApiIngestRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  PorfileHanldleRoute: typeof PorfileHanldleRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -104,6 +122,13 @@ declare module '@tanstack/solid-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/porfile/$hanldle': {
+      id: '/porfile/$hanldle'
+      path: '/porfile/$hanldle'
+      fullPath: '/porfile/$hanldle'
+      preLoaderRoute: typeof PorfileHanldleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo/tanstack-query': {
@@ -135,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardRoute: OnboardRoute,
   ApiIngestRoute: ApiIngestRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
+  PorfileHanldleRoute: PorfileHanldleRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

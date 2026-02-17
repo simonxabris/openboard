@@ -30,11 +30,19 @@ function Onboard() {
     if (!data?.ok) return "";
 
     const apiKeyLiteral = JSON.stringify(data.apiKey);
+    const baseUrl = import.meta.env.PROD
+      ? "https://openboard.space"
+      : "https://openboard.abrissimon.workers.dev";
 
-    return openboardPluginTemplate.replace(
-      /const USAGE_EVENTS_API_KEY = .+;/,
-      `const USAGE_EVENTS_API_KEY = ${apiKeyLiteral};`,
-    );
+    return openboardPluginTemplate
+      .replace(
+        /const USAGE_EVENTS_API_KEY = .+;/,
+        `const USAGE_EVENTS_API_KEY = ${apiKeyLiteral};`,
+      )
+      .replace(
+        /const USAGE_EVENTS_URL = ".+";/,
+        `const USAGE_EVENTS_URL = "${baseUrl}/api/ingest";`,
+      );
   };
 
   const generatedSetupScript = () => {
@@ -86,7 +94,7 @@ echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usa
     <div class="max-w-5xl mx-auto px-6 py-12">
       <div class="mb-8">
         <p class="text-xs uppercase tracking-[0.16em] text-[var(--accent)] m-0">Onboarding</p>
-        <h1 class="text-3xl md:text-4xl font-bold text-[#e5e5e5] tracking-tight mt-2 mb-3">
+        <h1 class="text-3xl md:text-4xl font-bold text-[var(--text-primary)] tracking-tight mt-2 mb-3">
           Install OpenBoard in OpenCode
         </h1>
         <p class="text-[#737373] text-base m-0 max-w-3xl">
@@ -137,7 +145,7 @@ echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usa
             <div>
               <p class="text-[#a3a3a3] text-sm m-0 mb-3">
                 Copy and run this script in your terminal to install the plugin. It will be placed
-                in <code class="text-[#e5e5e5] text-xs bg-[#0a0a0a] px-1.5 py-0.5 border border-[#262626]">~/.config/opencode/plugins</code> so
+                in <code class="text-[var(--text-primary)] text-xs bg-[#0a0a0a] px-1.5 py-0.5 border border-[#262626]">~/.config/opencode/plugins</code> so
                 it loads globally across all your projects.
               </p>
               <div class="flex flex-col gap-2 items-start">
@@ -156,8 +164,8 @@ echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usa
             </div>
 
             <div>
-              <p class="text-[#525252] text-xs m-0 mb-2">Plugin source</p>
-              <pre class="overflow-x-auto text-[#e5e5e5] text-xs bg-[#0a0a0a] p-3 border border-[#262626]">
+              <p class="text-[var(--text-secondary)] text-xs m-0 mb-2">Plugin source</p>
+              <pre class="overflow-x-auto text-[var(--text-primary)] text-xs bg-[#0a0a0a] p-3 border border-[#262626]">
                 <code>{generatedPluginCode()}</code>
               </pre>
             </div>
@@ -166,7 +174,7 @@ echo "OpenBoard usage plugin written to ~/.config/opencode/plugins/openboard-usa
       </Show>
 
       <div class="mt-6">
-        <Link to="/" class="text-sm text-[#a3a3a3] hover:text-[#e5e5e5]">
+        <Link to="/" class="text-sm text-[#a3a3a3] hover:text-[var(--text-primary)]">
           Back to leaderboard
         </Link>
       </div>

@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/solid-router";
+import { Link, createFileRoute } from "@tanstack/solid-router";
 import { queryOptions, useQuery } from "@tanstack/solid-query";
 import { For, Show, createSignal } from "solid-js";
+import { ExternalLink } from "lucide-solid";
 
 import { authClient } from "../lib/auth-client";
 import {
   getAllTimeLeaderboard,
   getDailyLeaderboard,
+  getSessionStatus,
   type LeaderboardEntry,
 } from "../server/functions";
 
@@ -20,11 +22,15 @@ const allTimeLeaderboardQueryOptions = queryOptions({
 });
 
 export const Route = createFileRoute("/")({
-  loader: ({ context }) =>
-    Promise.all([
+  loader: async ({ context }) => {
+    const [, , sessionStatus] = await Promise.all([
       context.queryClient.ensureQueryData(dailyLeaderboardQueryOptions),
       context.queryClient.ensureQueryData(allTimeLeaderboardQueryOptions),
-    ]),
+      getSessionStatus(),
+    ]);
+
+    return sessionStatus;
+  },
   component: Home,
 });
 
@@ -45,7 +51,7 @@ function getDisplayHandle(handle: string): string {
 }
 
 function RankDisplay(props: { rank: number }) {
-  return <span class="text-[#525252] text-sm font-medium">{props.rank}</span>;
+  return <span class="text-[var(--text-secondary)] text-sm font-medium">{props.rank}</span>;
 }
 
 function LeaderboardTable(props: { title: string; subtitle: string; data: LeaderboardEntry[] }) {
@@ -53,15 +59,15 @@ function LeaderboardTable(props: { title: string; subtitle: string; data: Leader
     <div class="border border-[#262626] overflow-hidden bg-[#0a0a0a]">
       <div class="px-5 py-4 border-b border-[#262626]">
         <div>
-          <h2 class="text-[#e5e5e5] text-base font-semibold m-0">{props.title}</h2>
-          <p class="text-[#525252] text-xs m-0 mt-0.5">{props.subtitle}</p>
+          <h2 class="text-[var(--text-primary)] text-base font-semibold m-0">{props.title}</h2>
+          <p class="text-[var(--text-secondary)] text-xs m-0 mt-0.5">{props.subtitle}</p>
         </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[#262626] text-[#525252] text-xs uppercase tracking-wider">
+            <tr class="border-b border-[#262626] text-[var(--text-secondary)] text-xs uppercase tracking-wider">
               <th class="text-left py-3 px-5 font-medium w-16">#</th>
               <th class="text-left py-3 px-2 font-medium">User</th>
               <th class="text-right py-3 px-5 font-medium">Tokens</th>
@@ -95,14 +101,24 @@ function LeaderboardTable(props: { title: string; subtitle: string; data: Leader
                           )}
                         </Show>
                       </div>
-                      <a
-                        href={getXProfileUrl(entry.handle)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class={`font-medium ${entry.rank <= 3 ? "text-[#e5e5e5]" : "text-[#a3a3a3]"}`}
-                      >
-                        {getDisplayHandle(entry.handle)}
-                      </a>
+                      <div class="flex items-center gap-2">
+                        <Link
+                          to="/porfile/$hanldle"
+                          params={{ hanldle: entry.handle }}
+                          class={`font-medium no-underline hover:text-[var(--text-primary)] ${entry.rank <= 3 ? "text-[var(--text-primary)]" : "text-[#a3a3a3]"}`}
+                        >
+                          {getDisplayHandle(entry.handle)}
+                        </Link>
+                        <a
+                          href={getXProfileUrl(entry.handle)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Open ${getDisplayHandle(entry.handle)} on X`}
+                          class="text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors inline-flex items-center"
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      </div>
                     </div>
                   </td>
                   <td class="py-3 px-5 text-right">
@@ -123,7 +139,8 @@ function LeaderboardTable(props: { title: string; subtitle: string; data: Leader
 function Home() {
   const dailyLeaderboardQuery = useQuery(() => dailyLeaderboardQueryOptions);
   const allTimeLeaderboardQuery = useQuery(() => allTimeLeaderboardQueryOptions);
-  const session = authClient.useSession();
+  const loaderData = Route.useLoaderData();
+  const isLoggedIn = () => loaderData().isLoggedIn;
   const [isSigningIn, setIsSigningIn] = createSignal(false);
   const [signInError, setSignInError] = createSignal<string | null>(null);
 
@@ -152,27 +169,25 @@ function Home() {
   return (
     <div class="max-w-6xl mx-auto px-6 py-12">
       <div class="mb-12">
-        <h1 class="text-4xl md:text-5xl font-bold text-[#e5e5e5] tracking-tight mb-3">
+        <h1 class="text-4xl md:text-5xl font-bold text-[var(--text-primary)] tracking-tight mb-3">
           Daily leaderboard for OpenCode
         </h1>
-        <p class="text-[#525252] text-lg max-w-2xl">Who will generate the most slop today?</p>
+        <p class="text-[var(--text-secondary)] text-lg max-w-2xl">Who will generate the most slop today?</p>
       </div>
 
-      <Show when={!session().data?.user}>
+      <Show when={!isLoggedIn()}>
         <div class="mb-10 border border-[#262626] bg-[#0a0a0a] p-6">
           <div class="border border-[#262626] bg-[#111111] px-4 py-3 mb-5 flex items-start gap-3">
             <span class="text-[var(--accent)] text-sm leading-relaxed shrink-0">🔒</span>
             <p class="text-[#a3a3a3] text-sm leading-relaxed m-0">
               The plugin only sends anonymous session IDs and token counts —{" "}
-              <span class="text-[#e5e5e5] font-semibold">no code, prompts, or personal data</span>{" "}
+              <span class="text-[var(--text-primary)] font-semibold">no code, prompts, or personal data</span>{" "}
               ever leaves your machine. You can verify this yourself when setting up the plugin —
               the source is fully open.
             </p>
           </div>
 
-          <p class="text-[#525252] text-xs uppercase tracking-[0.16em] m-0 mb-5">
-            Get on the board
-          </p>
+          <p class="text-[var(--text-secondary)] text-xs uppercase tracking-[0.16em] m-0 mb-5">Get on the board</p>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Step 1 */}
@@ -181,9 +196,9 @@ function Home() {
                 <span class="shrink-0 h-7 w-7 grid place-items-center border border-[var(--accent)] text-[var(--accent)] text-xs font-bold">
                   1
                 </span>
-                <span class="text-[#e5e5e5] text-sm font-semibold">Sign in with X</span>
+                <span class="text-[var(--text-primary)] text-sm font-semibold">Sign in with X</span>
               </div>
-              <p class="text-[#525252] text-xs leading-relaxed m-0 pl-10">
+              <p class="text-[var(--text-secondary)] text-xs leading-relaxed m-0 pl-10">
                 Connect your X account so your usage appears on the leaderboard.
               </p>
               <div class="pl-10 mt-1">
@@ -191,7 +206,7 @@ function Home() {
                   type="button"
                   onClick={() => void onSignInWithX()}
                   disabled={isSigningIn()}
-                  class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold hover:bg-[#67e8f9] disabled:opacity-60 disabled:cursor-not-allowed"
+                  class="px-4 py-2 bg-[var(--accent)] text-[#0a0a0a] text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSigningIn() ? "Redirecting..." : "Sign in →"}
                 </button>
@@ -204,12 +219,12 @@ function Home() {
             {/* Step 2 */}
             <div class="flex flex-col gap-3">
               <div class="flex items-center gap-3">
-                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[#262626] text-[#525252] text-xs font-bold">
+                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[#262626] text-[var(--text-secondary)] text-xs font-bold">
                   2
                 </span>
                 <span class="text-[#a3a3a3] text-sm font-semibold">Setup plugin</span>
               </div>
-              <p class="text-[#525252] text-xs leading-relaxed m-0 pl-10">
+              <p class="text-[var(--text-secondary)] text-xs leading-relaxed m-0 pl-10">
                 Install the OpenCode plugin and paste your token to start reporting usage.
               </p>
             </div>
@@ -217,12 +232,12 @@ function Home() {
             {/* Step 3 */}
             <div class="flex flex-col gap-3">
               <div class="flex items-center gap-3">
-                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[#262626] text-[#525252] text-xs font-bold">
+                <span class="shrink-0 h-7 w-7 grid place-items-center border border-[#262626] text-[var(--text-secondary)] text-xs font-bold">
                   3
                 </span>
                 <span class="text-[#a3a3a3] text-sm font-semibold">Good to go</span>
               </div>
-              <p class="text-[#525252] text-xs leading-relaxed m-0 pl-10">
+              <p class="text-[var(--text-secondary)] text-xs leading-relaxed m-0 pl-10">
                 Start coding — your token usage will appear on the leaderboard automatically.
               </p>
             </div>

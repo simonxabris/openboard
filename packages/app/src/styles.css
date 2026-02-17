@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
 
 :root {
   --bg-primary: #0a0a0a;
@@ -9,11 +9,35 @@
   --text-primary: #e5e5e5;
   --text-secondary: #a3a3a3;
   --text-muted: #525252;
-  --accent: #0273b5;
+  --accent: #00b7e0;
   --accent-dim: rgba(34, 211, 238, 0.1);
   --gold: #fbbf24;
   --silver: #94a3b8;
   --bronze: #d97706;
+  --chart-1: oklch(0.8100 0.1000 252);
+  --chart-2: oklch(0.6200 0.1900 260);
+  --chart-3: oklch(0.5500 0.2200 263);
+  --chart-4: oklch(0.4900 0.2200 264);
+  --chart-5: oklch(0.4200 0.1800 266);
+  --chart-6: oklch(0.7600 0.1700 145);
+  --chart-7: oklch(0.6900 0.2100 80);
+  --chart-8: oklch(0.6500 0.2100 30);
+  --chart-9: oklch(0.7000 0.1900 15);
+  --chart-10: oklch(0.8000 0.1200 195);
+  --sidebar: oklch(0.2050 0 0);
+}
+
+@theme inline {
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
 }
 
 body {

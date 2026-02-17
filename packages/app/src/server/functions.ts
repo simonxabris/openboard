@@ -14,6 +14,19 @@ export type LeaderboardEntry = {
   tokens: number;
 };
 
+export type ProfileModelEntry = {
+  model: string;
+  tokens: number;
+};
+
+export type ProfileStatsResult = {
+  found: boolean;
+  handle: string;
+  imageUrl: string | null;
+  totalTokens: number;
+  byModel: ProfileModelEntry[];
+};
+
 type LeaderboardScope = "daily" | "all-time";
 
 type LeaderboardModelRow = {
@@ -24,6 +37,18 @@ type LeaderboardModelRow = {
   tokens: number | string;
 };
 
+type ProfileUserLookupRow = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+};
+
+type ProfileModelTokensRow = {
+  model: string;
+  tokens: number | string;
+};
+
 export type OnboardSetupResult =
   | { ok: true; username: string; apiKey: string }
   | {
@@ -31,6 +56,10 @@ export type OnboardSetupResult =
       error: "unauthorized" | "create_api_key_failed";
       message: string;
     };
+
+export type SessionStatusResult = {
+  isLoggedIn: boolean;
+};
 
 function getUtcDayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -61,6 +90,16 @@ function getLeaderboardHandle(userId: string, name: string | null, email: string
   if (fromEmail) return fromEmail;
 
   return `user_${userId.slice(0, 8)}`;
+}
+
+function normalizeRequestedHandle(handle: string) {
+  const trimmed = handle.trim();
+  if (!trimmed) return null;
+
+  const withoutAt = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (!withoutAt) return null;
+
+  return withoutAt.toLowerCase();
 }
 
 async function fetchLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]> {
@@ -151,6 +190,19 @@ export const getOnboardSetup = createServerFn({ method: "GET" }).handler(
   },
 );
 
+export const getSessionStatus = createServerFn({ method: "GET" }).handler(
+  async (): Promise<SessionStatusResult> => {
+    try {
+      const headers = getRequestHeaders();
+      const session = await auth.api.getSession({ headers });
+      return { isLoggedIn: Boolean(session?.user) };
+    } catch (error) {
+      console.error("get_session_status_failed", error);
+      return { isLoggedIn: false };
+    }
+  },
+);
+
 export const getDailyLeaderboard = createServerFn({ method: "GET" }).handler(async () => {
   return fetchLeaderboard("daily");
 });
@@ -158,3 +210,74 @@ export const getDailyLeaderboard = createServerFn({ method: "GET" }).handler(asy
 export const getAllTimeLeaderboard = createServerFn({ method: "GET" }).handler(async () => {
   return fetchLeaderboard("all-time");
 });
+
+export const getProfileStats = createServerFn({ method: "GET" })
+  .inputValidator((input: { handle: string }) => ({
+    handle: input.handle,
+  }))
+  .handler(async ({ data }): Promise<ProfileStatsResult> => {
+    const requestedHandle = normalizeRequestedHandle(data.handle);
+    if (!requestedHandle) {
+      return {
+        found: false,
+        handle: data.handle,
+        imageUrl: null,
+        totalTokens: 0,
+        byModel: [],
+      };
+    }
+
+    const db = createDb();
+
+    const userRows = (await db
+      .select({
+        userId: usageEvents.userId,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+      })
+      .from(usageEvents)
+      .leftJoin(user, eq(user.id, usageEvents.userId))
+      .groupBy(usageEvents.userId, user.name, user.email, user.image)) as Array<ProfileUserLookupRow>;
+
+    const matchedUser = userRows.find((row) => {
+      const resolvedHandle = getLeaderboardHandle(row.userId, row.name, row.email).toLowerCase();
+      return resolvedHandle === requestedHandle;
+    });
+
+    if (!matchedUser) {
+      return {
+        found: false,
+        handle: requestedHandle,
+        imageUrl: null,
+        totalTokens: 0,
+        byModel: [],
+      };
+    }
+
+    const rows = (await db
+      .select({
+        model: usageEvents.model,
+        tokens: sql<number>`sum(${usageEvents.inputTokens} + ${usageEvents.outputTokens} + ${usageEvents.reasoningTokens} + ${usageEvents.cacheReadTokens} + ${usageEvents.cacheWriteTokens})`,
+      })
+      .from(usageEvents)
+      .where(eq(usageEvents.userId, matchedUser.userId))
+      .groupBy(usageEvents.model)) as Array<ProfileModelTokensRow>;
+
+    const byModel = rows
+      .map((row) => ({
+        model: row.model,
+        tokens: Number(row.tokens ?? 0),
+      }))
+      .sort((a, b) => b.tokens - a.tokens);
+
+    const totalTokens = byModel.reduce((sum, entry) => sum + entry.tokens, 0);
+
+    return {
+      found: true,
+      handle: getLeaderboardHandle(matchedUser.userId, matchedUser.name, matchedUser.email),
+      imageUrl: matchedUser.image,
+      totalTokens,
+      byModel,
+    };
+  });

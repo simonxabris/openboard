@@ -1,6 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin";
 
-const USAGE_EVENTS_URL = "https://openboard.abrissimon.workers.dev/api/ingest";
+const USAGE_EVENTS_URL = "https://PLACEHOLDER.openboard.space/api/ingest";
 const USAGE_EVENTS_API_KEY = "ob_sk_f2738409a62879459aafb5b9da273fb27b9c09e863480780";
 
 export const OpenboardPlugin: Plugin = async () => {
